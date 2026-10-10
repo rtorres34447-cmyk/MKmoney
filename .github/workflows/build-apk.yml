@@ -24,6 +24,8 @@ jobs:
         shell: bash
         run: |
           set -e
+                    unzip -oq MKmoney_v1_3_GitHub_Ready.zip -d .
+          echo "v1.3 files extracted"
 
           if [ -f "index.html" ]; then
             SOURCE="."
