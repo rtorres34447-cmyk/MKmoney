@@ -1,11 +1,16 @@
-name: Build MKmoney v1.3.4 APK (fixed)
+name: Build MKmoney v1.3.4 APK (ZIP Fix)
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
+    paths:
+      - '.github/workflows/build-apk-1.3.4-zip-fix.yml'
+      - 'MKmoney-v1.3.4-Fixed-Workflow-Package.zip'
+      - 'MKmoney-v1.3.4-Import-Fix-GitHub-Package.zip'
+      - 'app/**'
+      - 'settings.gradle'
+      - 'build.gradle'
 
 permissions:
   contents: read
@@ -18,17 +23,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify Android project files
+      - name: Find or unpack Android project
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -f settings.gradle && -f app/build.gradle ]]; then
+            PROJECT="$GITHUB_WORKSPACE"
+            echo 'Building project from repository root.'
+          else
+            ZIP=''
+            for candidate in \
+              'MKmoney-v1.3.4-Fixed-Workflow-Package.zip' \
+              'MKmoney-v1.3.4-Import-Fix-GitHub-Package.zip'; do
+              if [[ -f "$candidate" ]]; then
+                ZIP="$candidate"
+                break
+              fi
+            done
+            if [[ -z "$ZIP" ]]; then
+              echo '::error::Neither extracted Android sources nor a v1.3.4 ZIP was found in repository root.'
+              exit 1
+            fi
+            echo "Extracting $ZIP"
+            mkdir -p "$RUNNER_TEMP/mkmoney-source"
+            unzip -q -o "$ZIP" -d "$RUNNER_TEMP/mkmoney-source"
+            PROJECT=$(find "$RUNNER_TEMP/mkmoney-source" -name settings.gradle -type f -printf '%h\n' | head -n 1)
+            if [[ -z "$PROJECT" ]]; then
+              echo '::error::The ZIP has no settings.gradle file.'
+              exit 1
+            fi
+          fi
           for file in settings.gradle build.gradle app/build.gradle app/src/main/AndroidManifest.xml app/src/main/assets/index.html; do
-            if [ ! -f "$file" ]; then
-              echo "::error::Missing $file. Extract the v1.3.4 package into the repository ROOT (not a nested folder)."
+            if [[ ! -f "$PROJECT/$file" ]]; then
+              echo "::error::Missing $file inside the Android project at $PROJECT"
               exit 1
             fi
           done
-          echo "Android project structure verified."
+          echo "PROJECT_DIR=$PROJECT" >> "$GITHUB_ENV"
+          echo "Android project verified at $PROJECT"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -39,11 +71,10 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept licenses and install Android SDK 35
+      - name: Install Android platform
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
 
       - name: Set up Gradle 8.10.2
@@ -53,11 +84,12 @@ jobs:
 
       - name: Compile APK
         shell: bash
-        run: gradle --no-daemon --stacktrace --warning-mode all :app:assembleDebug
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MKmoney-v1.3.4-debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
