@@ -1,16 +1,13 @@
-name: Build MKmoney v1.3.4 APK (ZIP Fix)
+name: Build MKmoney v1.3.4 APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches:
+      - main
     paths:
-      - '.github/workflows/build-apk-1.3.4-zip-fix.yml'
+      - '.github/workflows/blank.yml'
       - 'MKmoney-v1.3.4-Fixed-Workflow-Package.zip'
-      - 'MKmoney-v1.3.4-Import-Fix-GitHub-Package.zip'
-      - 'app/**'
-      - 'settings.gradle'
-      - 'build.gradle'
 
 permissions:
   contents: read
@@ -18,74 +15,59 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Find or unpack Android project
+      - name: Extract v1.3.4 Android project
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -f settings.gradle && -f app/build.gradle ]]; then
-            PROJECT="$GITHUB_WORKSPACE"
-            echo 'Building project from repository root.'
-          else
-            ZIP=''
-            for candidate in \
-              'MKmoney-v1.3.4-Fixed-Workflow-Package.zip' \
-              'MKmoney-v1.3.4-Import-Fix-GitHub-Package.zip'; do
-              if [[ -f "$candidate" ]]; then
-                ZIP="$candidate"
-                break
-              fi
-            done
-            if [[ -z "$ZIP" ]]; then
-              echo '::error::Neither extracted Android sources nor a v1.3.4 ZIP was found in repository root.'
-              exit 1
-            fi
-            echo "Extracting $ZIP"
-            mkdir -p "$RUNNER_TEMP/mkmoney-source"
-            unzip -q -o "$ZIP" -d "$RUNNER_TEMP/mkmoney-source"
-            PROJECT=$(find "$RUNNER_TEMP/mkmoney-source" -name settings.gradle -type f -printf '%h\n' | head -n 1)
-            if [[ -z "$PROJECT" ]]; then
-              echo '::error::The ZIP has no settings.gradle file.'
-              exit 1
-            fi
+          ZIP='MKmoney-v1.3.4-Fixed-Workflow-Package.zip'
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::Missing ZIP at repository root: $ZIP"
+            exit 1
           fi
+          mkdir -p "$RUNNER_TEMP/mkmoney"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/mkmoney"
+          PROJECT="$RUNNER_TEMP/mkmoney"
           for file in settings.gradle build.gradle app/build.gradle app/src/main/AndroidManifest.xml app/src/main/assets/index.html; do
-            if [[ ! -f "$PROJECT/$file" ]]; then
-              echo "::error::Missing $file inside the Android project at $PROJECT"
+            if [ ! -f "$PROJECT/$file" ]; then
+              echo "::error::ZIP is missing $file"
               exit 1
             fi
           done
           echo "PROJECT_DIR=$PROJECT" >> "$GITHUB_ENV"
-          echo "Android project verified at $PROJECT"
+          echo 'Android project extracted successfully.'
 
-      - name: Set up JDK 17
+      - name: Install Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
+      - name: Configure Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android platform
+      - name: Install Android API 35
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
 
-      - name: Set up Gradle 8.10.2
+      - name: Configure Gradle 8.10.2
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
 
-      - name: Compile APK
+      - name: Build APK
         shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
