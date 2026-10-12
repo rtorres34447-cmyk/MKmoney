@@ -1,11 +1,11 @@
-name: Build MKmoney v1.3.5 APK (Import Verify)
+name: Build MKmoney v1.3.6 APK (Apply Import)
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.5-Import-Verified-GitHub-Package.zip'
+      - 'MKmoney-v1.3.6-Apply-Import-GitHub-Package.zip'
 permissions:
   contents: read
 jobs:
@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP='MKmoney-v1.3.5-Import-Verified-GitHub-Package.zip'
+          ZIP='MKmoney-v1.3.6-Apply-Import-GitHub-Package.zip'
           test -f "$ZIP" || { echo "::error::Upload $ZIP to the repository root"; exit 1; }
           mkdir -p "$RUNNER_TEMP/mkmoney"
           unzip -q -o "$ZIP" -d "$RUNNER_TEMP/mkmoney"
@@ -56,6 +56,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MKmoney-v1.3.5-APK
+          name: MKmoney-v1.3.6-APK
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
