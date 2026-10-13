@@ -5,7 +5,7 @@ on:
     branches: [main, master]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.7-Apply-Import-GitHub-Package.zip'
+      - 'MKmoney-v1.3.7-Bank-Breakdown-GitHub-Package.zip'
 permissions:
   contents: read
 jobs:
@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP='MKmoney-v1.3.7-Apply-Import-GitHub-Package.zip'
+          ZIP='MKmoney-v1.3.7-Bank-Breakdown-GitHub-Package.zip'
           test -f "$ZIP" || { echo "::error::Upload $ZIP to the repository root"; exit 1; }
           mkdir -p "$RUNNER_TEMP/mkmoney"
           unzip -q -o "$ZIP" -d "$RUNNER_TEMP/mkmoney"
