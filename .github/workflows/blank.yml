@@ -1,32 +1,63 @@
-name: Build MKmoney v1.3.8 APK
+name: Build MKmoney v1.3.8 APK (Uploaded ZIP)
+
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'app/**'
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'gradle.properties'
+      - 'MKmoney-v1.3.8-GitHub-Source.zip'
       - '.github/workflows/build-mkmoney-v1.3.8.yml'
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract uploaded source ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP='MKmoney-v1.3.8-GitHub-Source.zip'
+          if [[ ! -f "$ZIP" ]]; then
+            echo "::error::Upload $ZIP to the repository root (Code > Add file > Upload files)."
+            exit 1
+          fi
+          # Do not overwrite the running workflow with an older copy from inside the ZIP.
+          unzip -o "$ZIP" -x '.github/workflows/*' >/dev/null
+          test -f settings.gradle || { echo '::error::settings.gradle missing from ZIP'; exit 1; }
+          test -f app/build.gradle || { echo '::error::app/build.gradle missing from ZIP'; exit 1; }
+          test -f app/src/main/assets/index.html || { echo '::error::index.html missing from ZIP'; exit 1; }
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install SDK 35
-        run: yes | sdkmanager --licenses >/dev/null && sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Build APK
-        run: |
-          set -euo pipefail
-          test -f app/src/main/assets/index.html
-          gradle --no-daemon :app:assembleDebug
-      - uses: actions/upload-artifact@v4
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
         with:
-          name: MKmoney-v1.3.8-APK
+          gradle-version: '8.10.2'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Build APK
+        shell: bash
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MKmoney-v1.3.8-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
