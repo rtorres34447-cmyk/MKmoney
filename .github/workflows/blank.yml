@@ -1,11 +1,11 @@
-name: Build MKmoney v1.3.8 APK (Uploaded ZIP)
+name: Build MKmoney v1.3.8 APK from ZIP
 
 on:
   workflow_dispatch:
   push:
     paths:
+      - '.github/workflows/blank.yml'
       - 'MKmoney-v1.3.8-GitHub-Source.zip'
-      - '.github/workflows/build-mkmoney-v1.3.8.yml'
 
 permissions:
   contents: read
@@ -13,24 +13,24 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract uploaded source ZIP
+      - name: Verify and extract uploaded ZIP
         shell: bash
         run: |
           set -euo pipefail
-          ZIP='MKmoney-v1.3.8-GitHub-Source.zip'
-          if [[ ! -f "$ZIP" ]]; then
-            echo "::error::Upload $ZIP to the repository root (Code > Add file > Upload files)."
-            exit 1
-          fi
-          # Do not overwrite the running workflow with an older copy from inside the ZIP.
-          unzip -o "$ZIP" -x '.github/workflows/*' >/dev/null
-          test -f settings.gradle || { echo '::error::settings.gradle missing from ZIP'; exit 1; }
-          test -f app/build.gradle || { echo '::error::app/build.gradle missing from ZIP'; exit 1; }
-          test -f app/src/main/assets/index.html || { echo '::error::index.html missing from ZIP'; exit 1; }
+          ZIP="MKmoney-v1.3.8-GitHub-Source.zip"
+          test -f "$ZIP" || { echo "::error::Missing $ZIP in repository root"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/mkmoney-source"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/mkmoney-source"
+          cd "$RUNNER_TEMP/mkmoney-source"
+          test -f settings.gradle || { echo '::error::Missing settings.gradle'; exit 1; }
+          test -f app/build.gradle || { echo '::error::Missing app/build.gradle'; exit 1; }
+          test -f app/src/main/assets/index.html || { echo '::error::Missing dashboard index.html'; exit 1; }
+          echo "SOURCE_DIR=$PWD" >> "$GITHUB_ENV"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -46,18 +46,20 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK components
+      - name: Install Android SDK 35
         shell: bash
         run: |
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
 
-      - name: Build APK
+      - name: Compile APK
         shell: bash
+        working-directory: ${{ env.SOURCE_DIR }}
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Upload installable APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MKmoney-v1.3.8-debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.SOURCE_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
