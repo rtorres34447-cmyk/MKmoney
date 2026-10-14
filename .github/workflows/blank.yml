@@ -1,4 +1,4 @@
-name: Build MKmoney v1.3.8 APK from ZIP
+name: Build MKmoney v1.3.8 APK from ZIP (SDK fix)
 
 on:
   workflow_dispatch:
@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify and extract uploaded ZIP
+      - name: Extract and verify source ZIP
         shell: bash
         run: |
           set -euo pipefail
@@ -27,9 +27,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/mkmoney-source"
           unzip -q "$ZIP" -d "$RUNNER_TEMP/mkmoney-source"
           cd "$RUNNER_TEMP/mkmoney-source"
-          test -f settings.gradle || { echo '::error::Missing settings.gradle'; exit 1; }
-          test -f app/build.gradle || { echo '::error::Missing app/build.gradle'; exit 1; }
-          test -f app/src/main/assets/index.html || { echo '::error::Missing dashboard index.html'; exit 1; }
+          test -f settings.gradle || { echo '::error::settings.gradle missing'; exit 1; }
+          test -f app/build.gradle || { echo '::error::app/build.gradle missing'; exit 1; }
+          test -f app/src/main/assets/index.html || { echo '::error::index.html missing'; exit 1; }
           echo "SOURCE_DIR=$PWD" >> "$GITHUB_ENV"
 
       - name: Set up Java 17
@@ -43,14 +43,22 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 35
+      - name: Use preinstalled Android SDK and install API 35
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "SDK location: $SDK"
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -n 1)"
+          fi
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo '::error::sdkmanager not found'; exit 1; }
+          # Do not use android-actions/setup-android@v3 here: that action tries
+          # to install obsolete package "tools" and fails before the APK build.
+          "$SDKMANAGER" --sdk_root="$SDK" --install 'platforms;android-35' 'build-tools;35.0.0' < /dev/null
 
       - name: Compile APK
         shell: bash
