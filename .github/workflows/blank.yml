@@ -1,11 +1,11 @@
-name: Build MKmoney v1.3.8 APK from ZIP (SDK fix)
+name: Build MKmoney v1.3.8 APK (Logo Restored)
 
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.8-GitHub-Source.zip'
+      - 'MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip'
 
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="MKmoney-v1.3.8-GitHub-Source.zip"
+          ZIP="MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip"
           test -f "$ZIP" || { echo "::error::Missing $ZIP in repository root"; exit 1; }
           mkdir -p "$RUNNER_TEMP/mkmoney-source"
           unzip -q "$ZIP" -d "$RUNNER_TEMP/mkmoney-source"
