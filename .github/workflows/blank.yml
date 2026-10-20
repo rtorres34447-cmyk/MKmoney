@@ -1,4 +1,4 @@
-name: Build MKmoney v1.3.10 APK (Today + Workweek)
+name: Build MKmoney v1.3.10 APK (Fixed)
 
 on:
   workflow_dispatch:
@@ -6,8 +6,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.10-Today-Workweek-Update.zip'
-      - 'MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip'
+      - '*.zip'
+      - 'app/**'
+      - 'settings.gradle*'
+      - 'build.gradle*'
 
 permissions:
   contents: read
@@ -15,26 +17,77 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Check source and update ZIPs
+      - name: Locate Android project and apply v1.3.10 update
         shell: bash
         run: |
           set -euo pipefail
-          test -f MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip || { echo '::error::Existing v1.3.8 source ZIP not found in repository root'; exit 1; }
-          test -f MKmoney-v1.3.10-Today-Workweek-Update.zip || { echo '::error::Upload MKmoney-v1.3.10-Today-Workweek-Update.zip to repository root'; exit 1; }
-          PROJECT="$RUNNER_TEMP/mkmoney-source"
+          PROJECT="$RUNNER_TEMP/mkmoney-project"
           mkdir -p "$PROJECT"
-          unzip -q MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip -d "$PROJECT"
-          unzip -q -o MKmoney-v1.3.10-Today-Workweek-Update.zip 'app/src/main/assets/index.html' -d "$PROJECT"
-          for file in settings.gradle app/build.gradle app/src/main/assets/index.html; do
-            test -f "$PROJECT/$file" || { echo "::error::Missing $file"; exit 1; }
-          done
+
+          # Prefer an Android project already checked into the repository.
+          if [[ -f settings.gradle || -f settings.gradle.kts ]]; then
+            cp -a . "$PROJECT/"
+          else
+            # Fall back to source ZIPs, prioritising previously working source versions.
+            mapfile -t sources < <(find . -maxdepth 2 -type f -iname '*.zip' \
+              ! -iname '*update*.zip' ! -iname '*patch*.zip' \
+              | sort -Vr)
+            found=0
+            for source in "${sources[@]}"; do
+              candidate="$RUNNER_TEMP/source-candidate"
+              rm -rf "$candidate"
+              mkdir -p "$candidate"
+              if ! unzip -q "$source" -d "$candidate"; then
+                echo "Skipping damaged ZIP: $source"
+                continue
+              fi
+              settings=$(find "$candidate" -maxdepth 5 -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+              if [[ -n "$settings" ]]; then
+                source_root=$(dirname "$settings")
+                if [[ -d "$source_root/app" ]]; then
+                  cp -a "$source_root/." "$PROJECT/"
+                  echo "Using Android source from: $source"
+                  found=1
+                  break
+                fi
+              fi
+            done
+            if [[ "$found" != 1 ]]; then
+              echo '::error::No complete Android source found. Upload the full MKmoney Android source ZIP to the repository root (not just the update ZIP).'
+              exit 1
+            fi
+          fi
+
+          # Use the matching v1.3.10 update when it exists; tolerate ZIP root folders.
+          update=$(find . -maxdepth 2 -type f -iname '*v1.3.10*update*.zip' -print -quit)
+          if [[ -n "$update" ]]; then
+            updates="$RUNNER_TEMP/mkmoney-updates"
+            mkdir -p "$updates"
+            unzip -q "$update" -d "$updates"
+            html=$(find "$updates" -type f -path '*/app/src/main/assets/index.html' -print -quit)
+            if [[ -z "$html" ]]; then
+              echo '::error::Update ZIP does not include app/src/main/assets/index.html'
+              exit 1
+            fi
+            mkdir -p "$PROJECT/app/src/main/assets"
+            cp "$html" "$PROJECT/app/src/main/assets/index.html"
+            echo "Applied v1.3.10 update from: $update"
+          else
+            echo 'No v1.3.10 update ZIP found; checking whether it is already included in the source.'
+          fi
+
+          test -f "$PROJECT/app/src/main/assets/index.html" || { echo '::error::Missing app/src/main/assets/index.html'; exit 1; }
+          if ! grep -q 'dashboardToday' "$PROJECT/app/src/main/assets/index.html"; then
+            echo '::error::v1.3.10 dashboardToday change is missing. Upload the v1.3.10 Today-Workweek update ZIP.'
+            exit 1
+          fi
           echo "PROJECT_DIR=$PROJECT" >> "$GITHUB_ENV"
-          grep -q dashboardToday "$PROJECT/app/src/main/assets/index.html"
-          echo 'Updated dashboard installed in Android project.'
+          echo 'Android project and v1.3.10 update verified.'
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -42,12 +95,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.10.2
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
 
-      - name: Install Android SDK 35
+      - name: Install Android SDK
         shell: bash
         run: |
           set -euo pipefail
@@ -56,16 +109,25 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
           if [[ ! -x "$SDKMANAGER" ]]; then
-            SDKMANAGER="$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -n 1)"
+            SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
           fi
-          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo '::error::sdkmanager not found'; exit 1; }
-          "$SDKMANAGER" --sdk_root="$SDK" --install 'platforms;android-35' 'build-tools;35.0.0' < /dev/null
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo '::error::Android SDK manager missing'; exit 1; }
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses > /dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK" --install 'platforms;android-35' 'build-tools;35.0.0'
 
       - name: Build APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          if [[ -f ./gradlew ]]; then
+            chmod +x ./gradlew
+            ./gradlew --no-daemon --stacktrace :app:assembleDebug
+          else
+            gradle --no-daemon --stacktrace :app:assembleDebug
+          fi
 
-      - name: Downloadable APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MKmoney-v1.3.10-APK
