@@ -1,11 +1,11 @@
-name: Build MKmoney v1.3.23 (CSV Picker Java Compile Fix)
+name: Build MKmoney v1.3.24 (Existing WebChromeClient merge)
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.23-Java-Compile-Fix.zip'
+      - 'MKmoney-v1.3.24-CSV-Picker-Compile-Fix.zip'
 permissions:
   contents: read
 jobs:
@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for f in MKmoney-Full-Source-v1.3.19.zip MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip MKmoney-v1.3.20-Logo-Fix.zip MKmoney-v1.3.21-CSV-Import-Repair.zip MKmoney-v1.3.22-Import-Button-Fix.zip MKmoney-v1.3.23-Java-Compile-Fix.zip; do
+          for f in MKmoney-Full-Source-v1.3.19.zip MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip MKmoney-v1.3.20-Logo-Fix.zip MKmoney-v1.3.21-CSV-Import-Repair.zip MKmoney-v1.3.22-Import-Button-Fix.zip MKmoney-v1.3.24-CSV-Picker-Compile-Fix.zip; do
             test -f "$f" || { echo "::error::Missing $f from repository root"; exit 1; }
           done
           mkdir -p "$RUNNER_TEMP/latest" "$RUNNER_TEMP/original" "$RUNNER_TEMP/logo" "$RUNNER_TEMP/csvfix" "$RUNNER_TEMP/pickerfix" "$RUNNER_TEMP/javafix"
@@ -27,7 +27,7 @@ jobs:
           unzip -q MKmoney-v1.3.20-Logo-Fix.zip -d "$RUNNER_TEMP/logo"
           unzip -q MKmoney-v1.3.21-CSV-Import-Repair.zip -d "$RUNNER_TEMP/csvfix"
           unzip -q MKmoney-v1.3.22-Import-Button-Fix.zip -d "$RUNNER_TEMP/pickerfix"
-          unzip -q MKmoney-v1.3.23-Java-Compile-Fix.zip -d "$RUNNER_TEMP/javafix"
+          unzip -q MKmoney-v1.3.24-CSV-Picker-Compile-Fix.zip -d "$RUNNER_TEMP/javafix"
           LATEST_SETTINGS="$(find "$RUNNER_TEMP/latest" -type f -name settings.gradle -print -quit)"
           ORIGINAL_SETTINGS="$(find "$RUNNER_TEMP/original" -type f -name settings.gradle -print -quit)"
           test -n "$LATEST_SETTINGS" && test -n "$ORIGINAL_SETTINGS"
@@ -79,6 +79,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MKmoney-v1.3.23-debug-APK
+          name: MKmoney-v1.3.24-debug-APK
           path: ${{ env.SOURCE_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
