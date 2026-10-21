@@ -1,11 +1,11 @@
-name: Build MKmoney v1.3.28 (Corrected ZIP reference)
+name: Build MKmoney v1.3.29 (Corrected ZIP reference)
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.28-Validation-Fix.zip'
+      - 'MKmoney-v1.3.29-Validator-Fix.zip'
 permissions:
   contents: read
 jobs:
@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in             MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip             MKmoney-v1.3.10-Today-Workweek-Update.zip             MKmoney-v1.3.14-Logo-and-Banks-Patch.zip             MKmoney-v1.3.15-Weekly-Archive-Patch.zip             MKmoney-v1.3.16-Paid-Archive-Patch.zip             MKmoney-v1.3.28-Validation-Fix.zip; do
+          for file in             MKmoney-v1.3.8-Logo-Restored-GitHub-Source.zip             MKmoney-v1.3.10-Today-Workweek-Update.zip             MKmoney-v1.3.14-Logo-and-Banks-Patch.zip             MKmoney-v1.3.15-Weekly-Archive-Patch.zip             MKmoney-v1.3.16-Paid-Archive-Patch.zip             MKmoney-v1.3.29-Validator-Fix.zip; do
             test -f "$file" || { echo "::error::Missing $file in repository root"; exit 1; }
           done
           mkdir -p "$RUNNER_TEMP/base" "$RUNNER_TEMP/update" "$RUNNER_TEMP/feature14" "$RUNNER_TEMP/feature15" "$RUNNER_TEMP/feature16" "$RUNNER_TEMP/verify"
@@ -27,7 +27,7 @@ jobs:
           unzip -q MKmoney-v1.3.14-Logo-and-Banks-Patch.zip -d "$RUNNER_TEMP/feature14"
           unzip -q MKmoney-v1.3.15-Weekly-Archive-Patch.zip -d "$RUNNER_TEMP/feature15"
           unzip -q MKmoney-v1.3.16-Paid-Archive-Patch.zip -d "$RUNNER_TEMP/feature16"
-          unzip -q MKmoney-v1.3.28-Validation-Fix.zip -d "$RUNNER_TEMP/verify"
+          unzip -q MKmoney-v1.3.29-Validator-Fix.zip -d "$RUNNER_TEMP/verify"
           SETTINGS="$(find "$RUNNER_TEMP/base" -type f -name settings.gradle -print -quit)"
           test -n "$SETTINGS" || { echo '::error::Base project missing'; exit 1; }
           ROOT="$(dirname "$SETTINGS")"
@@ -48,7 +48,7 @@ jobs:
           root=Path(sys.argv[1])
           gradle=root/'app/build.gradle'
           src=gradle.read_text()
-          src,n=re.subn(r'(\bversionName\s*(?:=\s*)?)[\x22\x27][^\x22\x27]+[\x22\x27]',lambda m:m.group(1)+'"1.3.28"',src,count=1)
+          src,n=re.subn(r'(\bversionName\s*(?:=\s*)?)[\x22\x27][^\x22\x27]+[\x22\x27]',lambda m:m.group(1)+'"1.3.29"',src,count=1)
           if n!=1:raise SystemExit('versionName not found')
           gradle.write_text(src)
           PY
@@ -78,6 +78,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MKmoney-v1.3.28-APK
+          name: MKmoney-v1.3.29-APK
           path: ${{ env.SOURCE_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
