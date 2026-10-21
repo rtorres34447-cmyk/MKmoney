@@ -1,4 +1,4 @@
-name: Build MKmoney v1.3.17 (Fixed source detection)
+name: Build MKmoney v1.3.18 (Android SDK fix)
 
 on:
   workflow_dispatch:
@@ -43,7 +43,6 @@ jobs:
                       names = archive.namelist()
                       if not any(n.endswith('app/src/main/assets/index.html') for n in names):
                           continue
-                      # Extract each candidate into its own location.
                       target = root/'_source_candidate'
                       if target.exists(): shutil.rmtree(target)
                       target.mkdir()
@@ -91,7 +90,7 @@ jobs:
           java-version: '17'
 
       - name: Install Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -110,6 +109,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: MKmoney-v1.3.17-debug-APK
+          name: MKmoney-v1.3.18-debug-APK
           path: '**/build/outputs/apk/debug/*.apk'
           if-no-files-found: error
