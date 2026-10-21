@@ -1,114 +1,41 @@
-name: Build MKmoney v1.3.18 (Android SDK fix)
-
+name: Build MKmoney Full Source APK
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
     paths:
       - '.github/workflows/blank.yml'
-      - '*.zip'
-      - 'app/**'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'settings.gradle*'
-      - 'build.gradle*'
-
+      - 'MKmoney-Full-Source-v1.3.19.zip'
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Locate complete Android source
+      - uses: actions/checkout@v4
+      - name: Extract full Android source
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import zipfile, shutil, sys
-          root = Path.cwd()
-          def valid(p):
-              return (p/'app/src/main/assets/index.html').is_file() and (p/'app/src/main/AndroidManifest.xml').is_file() and ((p/'gradlew').is_file() or (p/'settings.gradle').is_file() or (p/'settings.gradle.kts').is_file())
-          if valid(root):
-              print('Complete Android project found in repository.')
-              sys.exit(0)
-          zips = [p for p in root.glob('*.zip') if 'patch' not in p.name.lower() and 'archive' not in p.name.lower()]
-          for z in zips:
-              try:
-                  with zipfile.ZipFile(z) as archive:
-                      names = archive.namelist()
-                      if not any(n.endswith('app/src/main/assets/index.html') for n in names):
-                          continue
-                      target = root/'_source_candidate'
-                      if target.exists(): shutil.rmtree(target)
-                      target.mkdir()
-                      archive.extractall(target)
-                  for candidate in [target] + list(target.rglob('app')):
-                      base = candidate.parent if candidate.name == 'app' else candidate
-                      if valid(base):
-                          for item in base.iterdir():
-                              dest=root/item.name
-                              if dest.exists():
-                                  if item.is_dir(): shutil.copytree(item,dest,dirs_exist_ok=True)
-                                  else: shutil.copy2(item,dest)
-                              elif item.is_dir(): shutil.copytree(item,dest)
-                              else: shutil.copy2(item,dest)
-                          shutil.rmtree(target,ignore_errors=True)
-                          print('Restored complete Android project from '+z.name)
-                          sys.exit(0)
-              except (zipfile.BadZipFile, OSError) as e:
-                  print(f'Skipping {z.name}: {e}')
-          print('::error title=Missing complete source::v1.3.17 is ONLY a patch ZIP. Upload a full MKmoney Android source ZIP (containing app/src/main/assets/index.html, AndroidManifest.xml and Gradle files) to the repo root, or commit the Android project files. The YAML alone cannot build an APK.')
-          print('Found root ZIP files: '+(', '.join(p.name for p in root.glob('*.zip')) or '(none)'))
-          sys.exit(1)
-          PY
-
-      - name: Check required patch ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f MKmoney-v1.3.17-Compatibility-Patch.zip || {
-            echo '::error title=Missing patch ZIP::Upload MKmoney-v1.3.17-Compatibility-Patch.zip to the repository root (Code > Add file > Upload files), not to Actions.'
-            exit 1
-          }
-
-      - name: Apply v1.3.17 patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          unzip -q -o MKmoney-v1.3.17-Compatibility-Patch.zip -d "$RUNNER_TEMP/mkmoney-patch"
-          python3 "$RUNNER_TEMP/mkmoney-patch/mkmoney_patch/apply_patch.py" "$GITHUB_WORKSPACE"
-
-      - name: Install Java 17
-        uses: actions/setup-java@v4
+          test -f MKmoney-Full-Source-v1.3.19.zip || { echo '::error::Upload MKmoney-Full-Source-v1.3.19.zip to the repository root'; exit 1; }
+          mkdir -p full-source
+          unzip -q MKmoney-Full-Source-v1.3.19.zip -d full-source
+          test -f full-source/app/src/main/assets/index.html
+          test -f full-source/app/src/main/AndroidManifest.xml
+          test -f full-source/settings.gradle
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build debug APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f gradlew ]]; then
-            chmod +x gradlew
-            ./gradlew --no-daemon --stacktrace assembleDebug
-          else
-            gradle --no-daemon --stacktrace assembleDebug
-          fi
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          name: MKmoney-v1.3.18-debug-APK
-          path: '**/build/outputs/apk/debug/*.apk'
+          gradle-version: '8.10.2'
+      - name: Build APK
+        working-directory: full-source
+        run: gradle --no-daemon :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MKmoney-v1.3.19-debug-APK
+          path: full-source/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
