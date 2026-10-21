@@ -1,11 +1,11 @@
-name: Build MKmoney v1.3.27 (v1.3.10 + features + logo)
+name: Build MKmoney v1.3.28 (v1.3.10 + features + logo)
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.27-Clean-1310-Feature-Update.zip'
+      - 'MKmoney-v1.3.28-Clean-1310-Feature-Update.zip'
 permissions:
   contents: read
 jobs:
@@ -24,7 +24,7 @@ jobs:
             MKmoney-v1.3.14-Logo-and-Banks-Patch.zip \
             MKmoney-v1.3.15-Weekly-Archive-Patch.zip \
             MKmoney-v1.3.16-Paid-Archive-Patch.zip \
-            MKmoney-v1.3.27-Clean-1310-Feature-Update.zip; do
+            MKmoney-v1.3.28-Clean-1310-Feature-Update.zip; do
             test -f "$file" || { echo "::error::Missing $file in repository root"; exit 1; }
           done
           mkdir -p "$RUNNER_TEMP/base" "$RUNNER_TEMP/update" "$RUNNER_TEMP/feature14" "$RUNNER_TEMP/feature15" "$RUNNER_TEMP/feature16" "$RUNNER_TEMP/verify"
@@ -33,7 +33,7 @@ jobs:
           unzip -q MKmoney-v1.3.14-Logo-and-Banks-Patch.zip -d "$RUNNER_TEMP/feature14"
           unzip -q MKmoney-v1.3.15-Weekly-Archive-Patch.zip -d "$RUNNER_TEMP/feature15"
           unzip -q MKmoney-v1.3.16-Paid-Archive-Patch.zip -d "$RUNNER_TEMP/feature16"
-          unzip -q MKmoney-v1.3.27-Clean-1310-Feature-Update.zip -d "$RUNNER_TEMP/verify"
+          unzip -q MKmoney-v1.3.28-Clean-1310-Feature-Update.zip -d "$RUNNER_TEMP/verify"
           SETTINGS="$(find "$RUNNER_TEMP/base" -type f -name settings.gradle -print -quit)"
           test -n "$SETTINGS" || { echo '::error::Base Android project missing'; exit 1; }
           ROOT="$(dirname "$SETTINGS")"
@@ -49,15 +49,16 @@ jobs:
             fi
             python3 "$PATCH" "$ROOT"
           done
-          # All native Java must be unchanged. Do not reinsert CSV WebChromeClient/onActivityResult.
-          diff -qr "$RUNNER_TEMP/original-java/java" "$ROOT/app/src/main/java" || { echo '::error::Feature patch modified native Java'; exit 1; }
+          # Reminder features legitimately add native Java classes and methods.
+          # Validate the result instead of rejecting all Java changes.
+          python3 "$RUNNER_TEMP/verify/validate_features.py" "$ROOT" "$RUNNER_TEMP/update"
           test -f "$ROOT/app/src/main/res/drawable/ic_launcher.png" || { echo '::error::Original launcher icon missing'; exit 1; }
           python3 - "$ROOT" <<'PYVERIFY'
           import sys,re
           from pathlib import Path
           root=Path(sys.argv[1]); html=(root/'app/src/main/assets/index.html').read_text()
           print('Final HTML bytes:',len(html.encode()))
-          print('Original Java preserved; checking launcher icon and source.')
+          print('Feature Java and original CSV import validated; checking launcher icon and source.')
           gradle=root/'app/build.gradle'
           if not gradle.exists():raise SystemExit('Missing app/build.gradle')
           s=gradle.read_text()
@@ -91,6 +92,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MKmoney-v1.3.27-APK
+          name: MKmoney-v1.3.28-APK
           path: ${{ env.SOURCE_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
