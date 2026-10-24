@@ -1,4 +1,5 @@
-name: MKmoney Widget Diagnostic - SDK Fixed
+
+name: MKmoney Widget Diagnostic - XML Fixed
 
 on:
   workflow_dispatch:
@@ -70,7 +71,7 @@ jobs:
 
           if not match:
               raise RuntimeError(
-                  "Diagnostic project not found"
+                  "Diagnostic source not found"
               )
 
           archive = base64.b64decode(
@@ -82,7 +83,6 @@ jobs:
           PY
 
           unzip -t "$RUNNER_TEMP/widget.zip"
-
           unzip -q "$RUNNER_TEMP/widget.zip" \
             -d "$RUNNER_TEMP/widget-project"
 
@@ -92,7 +92,47 @@ jobs:
           echo "PROJECT_DIR=$RUNNER_TEMP/widget-project" \
             >> "$GITHUB_ENV"
 
-      - name: Configure existing Android SDK
+      - name: Repair widget XML
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import xml.etree.ElementTree as ET
+
+          root = Path(os.environ["PROJECT_DIR"])
+
+          file = (
+              root / "app/src/main/res/layout/"
+              "widget_layout.xml"
+          )
+
+          if not file.exists():
+              raise RuntimeError(
+                  "widget_layout.xml not found"
+              )
+
+          xml = file.read_text()
+
+          opening = xml.count("<LinearLayout")
+          closing = xml.count("</LinearLayout>")
+
+          missing = opening - closing
+
+          if missing > 0:
+              xml = xml.rstrip()
+              xml += "\n"
+              xml += "</LinearLayout>\n" * missing
+              file.write_text(xml)
+
+          ET.parse(file)
+
+          print("Widget layout XML validated")
+          PY
+
+      - name: Configure Android SDK
         shell: bash
         run: |
           set -euo pipefail
@@ -121,8 +161,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace :app:assembleDebug
+
+          gradle --no-daemon \
+            --stacktrace \
+            :app:assembleDebug
 
       - name: Upload diagnostic APK
         uses: actions/upload-artifact@v4
