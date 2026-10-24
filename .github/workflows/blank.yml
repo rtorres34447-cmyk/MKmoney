@@ -1,206 +1,30 @@
-name: Build MK Widget Lab APK (Self Contained)
-
+name: Build MK Widget Lab v2 Calendar
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
-
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Extract bundled Widget Lab source
-        shell: bash
+      - name: Install SDK packages
         run: |
-          set -euo pipefail
-          mkdir -p widgetlab-build
-          base64 --decode > /tmp/widgetlab.zip <<'BASE64_ZIP'
-          UEsDBBQAAAAIALy0WF0hL84zqgAAABABAAAPAAAAc2V0dGluZ3MuZ3JhZGxljY7BCoJAGITvPsXe
-          tIsPUHQIMag0Fws6yuYOy8a6/7KuQYTvnnoMgo7fMMw3zgxK21JYodDBBvZmHo56Hchr9BMqImWQ
-          rDasE0/YbCp5YWZWXkgDvixw8mFO2cjGSMLBStj2VaMnMwRNvxUlSaQ9QlJ/h/vdoWiqc8Pr6phn
-          16bOeXWZvH8eXK54osA9PdCG1IoObMvi8nTTUiEU4h5H2rZmkGDxWjgXRx9QSwMEFAAAAAgAvLRY
-          XS6iHRx6AwAAKwYAAAkAAABSRUFETUUubWRlVG1uGzcQ/b+nGMAB6joSZadfgIMWsJ3UdhzXgqU2
-          QP90uctZiRWXJEiuVF2gBwhywp6kM6Q2dptfK+3OvJl5780cwf0dfNBqhQneywa2Z+K0WqCXQSaE
-          C6uC0wqk99C5AErLlXVR2xWl9c7iHj5g85vG3WxXMJRMEjrjdgLeOIxgXYLeKd3txwxRVUdHcDlo
-          o0BbuNbpZmiqMwFXAbmmtIC9T3vwQ2N0C1TWB73lTyUWAnrqIbmwnwCKlYD6/q6MQBPUonol4O1f
-          Kcg2QVrrCNENoUX4/XZO4AoGb5xUcHKiU4TW2YQ2xZMTSO4ZMgRHnR9vED3UNP6snkDdcNNiFaQy
-          yP8jpkRcxPHV16L6RsCvBT+OJNaNkXYj9r2puUYtVjqth2a2c2HDTMXZs4DjtrCQ1hiRODcKQwTd
-          gUVUqKjCt2Lk4Z+/P8JFm7SzMf8unP5Xz4v5Xf72OFgYC7I0O5ublCHpjokiCqclbUppU7bBVGEz
-          rKbSb+rXpFRM0hjGKwIuMabIsl2o/9c8WIFm9WtSHNauR4g0GNoszoNHy5aagGsihi1RdPl4++b6
-          7R8Pd3WWqIDFsSoq+OlHOMvsLiUJskAKulnev4coe2+Qa5Wq9fn4ipyIE2i0MROQvRtsgrh2g8lu
-          RhkykxntF5n0FqfOmj0kGoswDiMcEuix+zIMXhBJp+S37wrO0ilJjnx5Bvm52Fsyrz1ATchbaQiW
-          O+VtYk3qRyQJ2iEE5OYSNUylk/RxkrvPVESGabn9OLajLZskoqi+F/CzY2+3xpFdMqcBHfE7ycnE
-          n0dSl2pLbYnGDMSOOo7kcrlC8PRPR9qBFslcPwhYZKGo1KGlGW8SMdk6vwfFQIaFoTmu1jJdz5f5
-          MnAd3dG6jiciZpscwQ1RR7Gay3rqo5qS2oE5gY6gUNHI7xbExyd4J7eSAv/E7GnQMQ404/S5O0jQ
-          IY0K9xTBp4gntVmcbPFIFiB/XJLys600mqhkOC/TOqN9Ya5zOH2SfC3L0WqQTapo5zjpqggw+KyL
-          zvbNrXBoyTyHR+xdQr6G8XAOpz64raYV/pw5znRYF4JIvL7K2a9SEbZnM9Qln2wVn1pr6RxuYE6z
-          0dS3+W7NArZIg4cRuZrLdsO6WklLV7euF/1GFABD1/H1013qgus/H2V46DpDFpnQREUsSxVJWNkW
-          84nqX1BLAwQUAAAACAC8tFhd1lxWskMAAABFAAAADAAAAGJ1aWxkLmdyYWRsZSvIKU3PzCtWqFbI
-          TFFQT87P1UvMSynKz0zRSywoyMlMTizJzM9TVyhLLSoGMhTULfTM9YzVFUCSlQppiTnFqQq1XABQ
-          SwMEFAAAAAgAvLRYXSVnxLVFAAAASQAAABEAAABncmFkbGUucHJvcGVydGllc8svStdLL0pMyUnV
-          yyrLTSxKL7bVjcitMEpX0HVJywSKpuYl56dk5qXbhoa46VpwJealFOVnpuiVFqc6QpgRtiVFpalc
-          AFBLAwQUAAAACAC8tFhdPFPNNr4AAAA7AQAAEAAAAGFwcC9idWlsZC5ncmFkbGWNj70OgkAQhHue
-          Yju6i2j8SSiJBRaQaGJrVu4kG467CxwYY3x3FxFjYWE5k5n5dp3uSjIt3IEkhIWtBRrZWJICndNU
-          oCdrQngEb5uDBmvVOizUmK8rcSVZKq/xHMbAliOtDrKCxTIAqS7YaZ9Yc6GSy1+rqfw5UJMZyvNV
-          DB4btl9qE0OvmpZriZUKoo/M+BoIIzEbjpzouRsAw1et7ZpCJWwz80ya/A122ONxbIvjdn9I8+wU
-          rSfcP1lGPYInUEsDBBQAAAAIALy0WF0L62WrfgEAACkDAAAgAAAAYXBwL3NyYy9tYWluL0FuZHJv
-          aWRNYW5pZmVzdC54bWytUsFOwzAMvfMVVe5L4IamtlDGBBPbmFAnjpNp3S0iTarEG+PvcdcVpgmJ
-          C8c47z372S++2dcm2qEP2tlEXMlLEaEtXKntOhFbqgbX4ia9iGuwusJAEcNtGIItvdNlIjZEzVCp
-          UGywhiCPdVm4WkHzrjwGdayJNIamMboA4lbRsTokJmIibvt3oE+DKm+rcgaEXoORU73ekJy7rGi5
-          d+DFN9/AG5pEzJ6iV12ukaIpvP38bgOGkUHwhHvKPVSVLhJRgQko2BWw3k7T5zfeQjsMN9Y2O/79
-          iOG+cSzErslvmR9rS2hpUGnDc6YHtRNnnVa/kQ4rO4ycZZO5UGnMy8C18+cDnJF6lJxmy/nocfzS
-          UtVZd9WbYV8eC9R81HNfvJtuS/9kig/6cdDrfWWLxevk/mGcr5aL+ywft4P+qsABkfW77Nh8Q5mN
-          8snzfNWxf/NXI8GgBII/Z2m82+kST0LCMXRbX7Q54/yqDrfStnKHTv26eHPqJKP808c+vfgCUEsD
-          BBQAAAAIALy0WF2IBhxzXQUAAPQKAAAeAAAAYXBwL3NyYy9tYWluL2Fzc2V0cy9pbmRleC5odG1s
-          jVbbjts2EH3fr2CdFLYbXyTvJbuybCDZtOimSbaIt80zJY4sYiVSICl7HcdAn/oB/Yh+WL6kQ9I3
-          bTdFDdjmjObGwzNDxd8xmZpVBSQ3ZTGN7S8pqJhPWiBaKANl07gEQ0maU6XBTFq1yfqXra1W0BIm
-          rQWHZSWVaZFUCgMCrZacmXzCYMFT6DuhxwU3nBZ9ndICJiGGMNwUMH3/C/nE2RwMeUeTeOiVsTYr
-          /EskW60zDNrPaMmLVaRX2kDZr/m4pGrORRSMK8oYF/NoFFQP44Sm93Mla8GiZ0EaXoxG41QWUkXP
-          ALLzLNnk4XqreJnBBTsfu+iaf4ZodFY9bJLaGCnWx3FGpxdwGYwTqRioKKweiJYFZ+TZyzA9Sy+3
-          CZY5N7A16ivKeK2j0Ja0qy88RWFb9TkG2X0DX8IS+Dw3USILtuGiqs06kQ+2MOu7DYuasQMTIwff
-          HyIHzcgBCR9jEcLp2dn5E6Ue7+f87PLiKn20h0sEpVKwdk59XdEUIpT7S0WrsVyAygq5dFJExWqZ
-          g4Jm5pejy1P6n8CMUDgcgxNL+tDPPSKjK2u8yxTR2siNLmlR7A4yARbAaDOoqNbNw90MMsr3dll2
-          xa7YJh56bsVDT2/LMaR62CQiWYSDAE3CaVxNZ4YKRgspgLwSTEkE6xMkvyPtydc//yJv6YK6hTZS
-          0Tm49dKHYpzOhdSGp4N4WE1jxheEs0kLcxcmb02vc0jvEQWSKOvw9Y+/4yHa2Kyx2+X0J660IYgV
-          iZPHzZJMd3mMJCtZK5LLEohOFYAYkI9gaiWIPRNrYAADmRxIwcW9xnp8AldXQRMopjNaVgUQVuOX
-          GoiHXh07Qrq6rbpF7MzYrneuv9JVia1PGGB2XhkuxRPudmC0yIIWNfrf2Xq2fvs4r0rkjXnClboH
-          e+fnYXA+CAL08y1LpEgLnt5PWhoE63Rb03BAZrgkP9+9f0e03xmi4AFD7Jzbv90FNXwBtjYbZDQg
-          H5yiL0WxchB+21VBpkDn1u/Uok8ZSWulLCzaODy/5ZkWQNWdwuayztdWIsaKB5f8FHkoFbBdLFTE
-          2IkOHKdq2aNU4Ezf7Hnn45COgKXFO7N06ja9ncXee8+83zQ4unjE2prcSUZXZEhehMQvZiuREl+g
-          7llbQZTnHDYMMbR6AoQBucmIOMJ0KdW9tlEaJ2U718d0/TVzpNp2CeHaPchoXRgXz0q0qvACQo5o
-          wgV2AMXybdRthygoKReYCC+4ex/4I5TSgO1jjVuXC44jCu+/Ff5iBmq2CRqN4tk9PcGrDtF8PkH8
-          pniL1pbEA8zzYwF2+Xp1wzqcdcfPO23bJ+3uwBMXj4G8QUXH/gyEXHa6/b2uayPc8RI+46y5zTK8
-          cTvdHy4C/HQHRt7MbmdG4bRAQ43EgU7QC4Pu+CSrRWo7juwZuDZqtfY16snb2e0HHI94gXc8mV87
-          GG2ymXF5u2Nv6/CbNIw8fNf2Qcdtx48u3BAXApQ9s0k7xotBkLTAETxp2UHcmnr3iLRfNMJVrvwX
-          bQQVXabky3ag2UNDfhQFMOvjCrHZHGcwmYEHLMK/Xrj9aIcEz1adtYYCUgPMYhjpgcW7l/CiwLX9
-          6/nRgZJf9DTS9nqr2q97fqN3tNKoPgg93JSZ4WxNbeyDsLW/sVWLFHTkSt70RI0ZRw4p11ePatcD
-          p/3ypd0RksACdbrbHm9SatK8A931/0HYNscOYdcpHjTYw4oBNwdW+InoKNE4C6t/jQB1HpG0h7Kd
-          1Meyh26n6Y73TDsqHV/slMFFI/nxPG2m909ucQZ0GvEOvsdjsenrnryT86bnYXmCQPhOxQnqbvih
-          e8c9+QdQSwMEFAAAAAgAvLRYXcQeV7jIAwAAuwkAADEAAABhcHAvc3JjL21haW4vamF2YS9jb20v
-          bWsvd2lkZ2V0bGFiL0xhYldpZGdldC5qYXZhpVbdjto4FL6fp/D6Kl6iaOheLRGrpZRWaOcHAdPR
-          qqqQSQxYk9he22GK6Eh9ln20fZI9jkkg/HQqdS7Gif1958/nfEHR5IkuGUpkHuVP0TNPl8xmdB5f
-          8VxJbREVqZY8jahS0YiJlIvlUFgm7DmEp0c9pR7Lp1sqwLj+EehIyzVPz2ATWbqL+hL2BTzd0Zx9
-          BwXrl9PgqvMLsVfHkxXVLB1ptmCaiYSZE+Qu7jHLpWUfOXsGiCrmGU9QklFj0A2d+4wQxAEFM+gk
-          R7S9QjuOsdTCsuCCZmhiNZQX9frT4f1dFx/fSeQPZo/Ddx8GUxxfVezGvSCaWC5FsKsESsKdWalC
-          Dsc8JdsdkncFe0b+JUjCOvKozIREhtmeN+Y9k5hHqrCDL1bTAEuFQ6lIrJkttGgGEYGVt1rSNKHG
-          meZpyMMm4v1N78PsYfSuNx3M+g/j8eBu+vUMYnh7+zDtvb0ZkPjluGpruBAEd6WZWe3zJdvj/kN5
-          93jLBTgUYAcuOUhI3OguJMrCNPbO1CeGcn76DAU13dzZq30MUxMIEi+kDnzFO4Ah24OeQevSw8FO
-          kDgTIz+OpUMSjqOMbmRhdy1A4pP2RKoLUU2s1CxSsG1cLmt3cVOohTPs1mAcQeem1LIQT1jGEsvS
-          DsKtmuqOgHmROudZFioXoO+lALsdHOJASKToJnfdZDYQUUowaWEExhtwmstCWCDgy07cpRYGIgQ7
-          FR86IcDOMA6vS7v/ffsXIUuVaSDcRgNx5N7IQicM3Au4zzqEe9GHZnpqNJ0PxcqUbsLdICUhLt8x
-          dPGv7etW+3W+gKQO6O61Yr95ne3yPWD79D37N2DvhlcqJprze0u5cPO65nZTtahDOW/vM7o0weFg
-          uZH+OJz+PbsbPM6mvclfX8+e9m8GvfFsej96vWjcZiw8kYEqolIFWr9fw1/oovpZOSBxHhXKdW49
-          dwHIzBp0AoTiz/s10xrEtpKMUiukeCgZB+J4qhV+DevhJtt6TjK5dDfiBbi2VioAbsH/KGNiaVdO
-          E70oJaVqXQpmzBLG14fRVMJMtqZQoFJ7DFQPBGcR/OKlOGL/FDQzAa9KDL1CCPFaHNeK3+X7MdjL
-          dmkIDruiyLKa80PacoKKBikHCGJdFTF4DEjM3EfiYC7PzGmbOMzJeHqd6+CW+66YZ26TFcRJtvAV
-          YWg3hR12SHX1x2EdZwmBQsRzzehT7Hnl+H2XZlZ8YYNjOQzbR4bKSezs0/OTeUao2hXvhcFPizwv
-          y3Khi+aFtVIglzPIV/cPVLbUOXFuNNXL1f9QSwMEFAAAAAgAvLRYXavyvJCaAgAAKQYAADAAAABh
-          cHAvc3JjL21haW4vamF2YS9jb20vbWsvd2lkZ2V0bGFiL0xhYlN0b3JlLmphdmGVVFtv2jAYfedX
-          WH6yRWrxsj00YlLVi9qplGphkyZNQsZ2wDSxI9u0Q4j/PtsxkALdNF5Czne+2zmOG8pe6FwApmtS
-          v5A3yefCVXSW92TdaOMAVdxoyQnTygnlyHV4/nYfxosFNYI/G1EKIxQTds/UZk6WVivytRg/jWdL
-          wQ5VlvSVklCXFB6pxA114k6bmh5RVk5WJATPwI+a0epc4NrDilOT95rVrJIMlFLRCrCKWgse6axw
-          2giw6QHrqPPhkxVA4/9blFYHDG+AEW5lFGDEy3XCR3BmgpDTUFDALCWS0fjmdvr87eHH1eQW52B7
-          6OiMVHPgNKdrhDepuBJv4FgOBNf+dzEaXXAOs3Zl8r3ApGzDISewEcb5SX27kKVD6cW3yqRy4Wnx
-          xpn15rgXKIf/M0JeEivco1DSnwNU0soKnO+0B2y4+xske1B+Mi8VwjkLWRNZC1SShhorkJ8IB5xy
-          jvZJN1c/p+O76Wj8NLnP4sx5kqnc7R7NiJXC8ow6tkC3v5lonNQKiL2uSeZ8eyIQD8p1bE4Jrf0M
-          R7MjE0EenU2lulq/+q8BVHp+qJOl6uLVC4M3Z47XcNchT1Rd8WHTbecMZb4fhHuK+8Cc+/vLur60
-          lhRF8a8Tkkp5SJih60MAYD9O2Ye/FOz7KXJZohgm3oe5WyD85fOnwQC3KW3Erma2HXOQxWDeEMGl
-          Q5g0q+MNYgomtGmq6MFet8OtEJF3PvxVsk7iMmpyAHyDcLCXYY6dZdFj5pdP6ExWFczeid1CECkN
-          GrquvR7Arn1bjuEhj9Z6pdxR5g6EHWJIve5wH1QCYTY4sNqbd0Ib26W5+N6h+TvLFXplgpTvOtsE
-          QqWV6HRPsn9wmM58J3Ku/HXI8WabTv/Sm7Tt/QFQSwMEFAAAAAgAvLRYXZ5I/150AwAAfQkAADQA
-          AABhcHAvc3JjL21haW4vamF2YS9jb20vbWsvd2lkZ2V0bGFiL01haW5BY3Rpdml0eS5qYXZhrVVR
-          bxo5EH7nV/ise9hViElP91TUqsDRu+SSEEGvealUmfUE3HjtlW0gEeK/39heCBwbkZP6susdj7+Z
-          b+bzbMWLRz4DUpiSlY9sJcUMvOLTbkuWlbGecC2skYLxqmK9wsul9M9Hm8ax/kILBUc7K5g+Ss+u
-          +JK7wsrKX2oP9oEXr7rew/SrhNWJ7YGSoP2RU2EQXns2mXML4s7CA1jQBbgmPoks61XVfVzdcI2l
-          sK+CDgzaNa5uefmSvrEz9sMZza4mo9vR9AcUmFa1mCpZkEJx58gNl3pbOgJPiCUc2RnWLVJzIkix
-          2yKfRkuwVgogNcoSkyBGDyxwD1kqNHEeP/K1W1Rg2W4zWbsI9EEjYA2c+bl00cqQ5gS8l3rmspw5
-          8KEzk9iZoeZTBSLzdgGvOPeUMqvPUkGvwJq6PVcuREOPs5BE34bqZnmb3nLkDOmbpnMIetDRbC/t
-          2pLnXfQapCZEOngw717z6cQbC0yZWSTYpr27u1AX60GQzq6qynABoo4XPv6xKqMPyOJ9p9Opm/wd
-          GwW+I7WAJzb3pUL/TYsc9DElHhpGPjWQ3TpPvMWKkQofWb4+SHNfCSzlfDUh5x9JgIsnyOhvjGzB
-          L6wmtD++/OPP4Xe0hWTeEjW0LGgAI9cguwSiNo5TyJk36XCWn4wSpehQwH2pVFbHFIjbrtcar8Z2
-          zUuz0D5fe/u8lg/ZL8GPldwXc3AZ/fZNrH/fnIfXb9sXzXM/t2ZFggqGTwVUXhqd0T4XMQqW5uhm
-          k+rDjmKFZtdAsVsxEBKlxKqFr8nSCNgOzwPzFJnRduBxYE5kaLsmtb/lzMIWCEX/+nJzff4xlI9G
-          Bywf7j7rgrarcJn2vi/ys3c5TpayDGl1T6kkIEed9L72wvtuPPw8eU/oWcjzjOIi5YVLg7o5i6wC
-          appsDOtiwc2bSnNSoHXI+yDFL6RGIgVXKt6qTRE6mu26ReC06Ifj8Wi801Hggdlu3iQ+HWfISKtn
-          lPjPE0Pqej2hzg3CEw/O00YN0F/fsYsL2qCmXXBvBMcMm3USb3si8rOFciCQvbbpI2JvU8epnkjt
-          SfqPDkJtXsbOf/+qiRbOIGxT0xDC7d2RS+Hif+Dgh9vA9oVBHNBYbQV65udvG2OFAm6vzcGQfk0z
-          W8VYKM0SMuototH/0ReMkwKmO9Mim9am9S9QSwMEFAAAAAgAvLRYXVVl+d3TAAAAPwEAACQAAABh
-          cHAvc3JjL21haW4vcmVzL3htbC93aWRnZXRfaW5mby54bWxVj0FLAzEQhe/9FUvu3awFRZamFbz0
-          YMGbRwmZcXcwyYRkttrijzfahaW3x3vfY95s99/BNyfMhTgaddd2qsHoGCgORk3ysX5U+91qa1P6
-          IhhQ1inziQBzU4ux9DZCZgKjRpHUa13ciMGWdvZbx0Hb9KkzFj17qplFHyi+Echo1Oa+g3QTHJCG
-          Ueqkh5uEIglZ/2LPPNX0yf8LfR23YPUcXfDIgHUZZ7pwFOt/6qNCzvoFvBafreDA+fwHB3wvLiPG
-          BZoSVOAVMzEcyXsqRnVK71a/UEsDBBQAAAAIALy0WF2fIBVZogAAAOsAAAAgAAAAYXBwL3NyYy9t
-          YWluL3Jlcy9kcmF3YWJsZS9iZy54bWxljksOgjAQhvecohnXUkE0hPCIQb1H01ZpgA7pFPX4ViVs
-          XP7PfGXzGgf20I4M2gqSeAdMW4nK2HsFs79tc2jqqKROTJqFrqVCWOXQqAo676eCc5KdHgXFix9L
-          HLmYeu408cWDuiQcjGKLLiQO6CrYnE/JIc32KfC6lOhsAFk7TigzU4DK1fTJyTvs9d/FMcvz9tJe
-          YU2eRvku7H4z/mWvozdQSwMEFAAAAAgAvLRYXVDV3ljRAQAAHwcAACIAAABhcHAvc3JjL21haW4v
-          cmVzL2xheW91dC93aWRnZXQueG1stZTfTtswFMbveQrLu0RrWkoHqgisNBRV69hFo+2yOolNY+Ha
-          ln2yEq72LHu0PcncLlOT0oAmllzF53z2+X7Hfy6uHleSfOfWCa1C2ut0KeEq1UyoZUhzvH9/Tq8u
-          jy5mQnGwMyh0jsRPUW4IilktWEgzRDMMApdmfAWuU8Y7qV4FYB4Cy11Qxigpf4abeR+PBQus1rgL
-          y22BxVowzEK6AkyzhQHL1XNNxsUywyaRAfYHoXfKzC6srfAywC2sp0aRgtylE0gfllbnauOOWVhD
-          InmQLKnvQMwf8avg6+cIKFDyNzGsLZhFqhXWROgrhvTzJ/JtGt3exGQ2uia/fvwk0XR0e/dlHk/H
-          de1YS21D+u5scvMhGtRzc/HEfTP6zuzFsZA+kWjJaPAiJQNsDzKqLV6FmWy/gzDnVZhyw2NtQjrw
-          W/4yTCKkbA3mTpPN+qTg+M9Mgyam/qtMzp/r3LVGNS9USrqHgUaT8SDqHwQ6eW2Tai/Lf/deu/CZ
-          Hz15RfXKVy2deUve0XWOqNWBe64ZFE397Vafmb+p0lqv0fTpCTP7jY7rZTbBkZRjMC6k9yAd37at
-          yaTy8vY9HvfIW0w6f5baNzmvVWmwGFTP3+Xe8Og3UEsBAhQDFAAAAAgAvLRYXSEvzjOqAAAAEAEA
-          AA8AAAAAAAAAAAAAAKSBAAAAAHNldHRpbmdzLmdyYWRsZVBLAQIUAxQAAAAIALy0WF0uoh0cegMA
-          ACsGAAAJAAAAAAAAAAAAAACkgdcAAABSRUFETUUubWRQSwECFAMUAAAACAC8tFhd1lxWskMAAABF
-          AAAADAAAAAAAAAAAAAAApIF4BAAAYnVpbGQuZ3JhZGxlUEsBAhQDFAAAAAgAvLRYXSVnxLVFAAAA
-          SQAAABEAAAAAAAAAAAAAAKSB5QQAAGdyYWRsZS5wcm9wZXJ0aWVzUEsBAhQDFAAAAAgAvLRYXTxT
-          zTa+AAAAOwEAABAAAAAAAAAAAAAAAKSBWQUAAGFwcC9idWlsZC5ncmFkbGVQSwECFAMUAAAACAC8
-          tFhdC+tlq34BAAApAwAAIAAAAAAAAAAAAAAApIFFBgAAYXBwL3NyYy9tYWluL0FuZHJvaWRNYW5p
-          ZmVzdC54bWxQSwECFAMUAAAACAC8tFhdiAYcc10FAAD0CgAAHgAAAAAAAAAAAAAApIEBCAAAYXBw
-          L3NyYy9tYWluL2Fzc2V0cy9pbmRleC5odG1sUEsBAhQDFAAAAAgAvLRYXcQeV7jIAwAAuwkAADEA
-          AAAAAAAAAAAAAKSBmg0AAGFwcC9zcmMvbWFpbi9qYXZhL2NvbS9tay93aWRnZXRsYWIvTGFiV2lk
-          Z2V0LmphdmFQSwECFAMUAAAACAC8tFhdq/K8kJoCAAApBgAAMAAAAAAAAAAAAAAApIGxEQAAYXBw
-          L3NyYy9tYWluL2phdmEvY29tL21rL3dpZGdldGxhYi9MYWJTdG9yZS5qYXZhUEsBAhQDFAAAAAgA
-          vLRYXZ5I/150AwAAfQkAADQAAAAAAAAAAAAAAKSBmRQAAGFwcC9zcmMvbWFpbi9qYXZhL2NvbS9t
-          ay93aWRnZXRsYWIvTWFpbkFjdGl2aXR5LmphdmFQSwECFAMUAAAACAC8tFhdVWX53dMAAAA/AQAA
-          JAAAAAAAAAAAAAAApIFfGAAAYXBwL3NyYy9tYWluL3Jlcy94bWwvd2lkZ2V0X2luZm8ueG1sUEsB
-          AhQDFAAAAAgAvLRYXZ8gFVmiAAAA6wAAACAAAAAAAAAAAAAAAKSBdBkAAGFwcC9zcmMvbWFpbi9y
-          ZXMvZHJhd2FibGUvYmcueG1sUEsBAhQDFAAAAAgAvLRYXVDV3ljRAQAAHwcAACIAAAAAAAAAAAAA
-          AKSBVBoAAGFwcC9zcmMvbWFpbi9yZXMvbGF5b3V0L3dpZGdldC54bWxQSwUGAAAAAA0ADQDUAwAA
-          ZRwAAAAA
-          BASE64_ZIP
-          unzip -oq /tmp/widgetlab.zip -d widgetlab-build
-          test -f widgetlab-build/settings.gradle
-          test -f widgetlab-build/app/build.gradle
-          echo "Widget Lab source extracted successfully."
-
-      - name: Install Android SDK 35
-        shell: bash
+          echo "y" | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build APK
         run: |
-          set -euo pipefail
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          if [[ ! -x "$SDKMANAGER" ]]; then SDKMANAGER="$(command -v sdkmanager || true)"; fi
-          test -x "$SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
-
-      - name: Set up Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
+          gradle --version || true
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          /tmp/gradle-8.9/bin/gradle --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
         with:
-          gradle-version: '8.9'
-
-      - name: Build standalone Widget Lab debug APK
-        working-directory: widgetlab-build
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
-
-      - name: Upload Widget Lab APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MK-Widget-Lab-v1.0-debug-apk
-          path: widgetlab-build/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          name: MK-Widget-Lab-v2-Calendar-APK
+          path: app/build/outputs/apk/debug/*.apk
