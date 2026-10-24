@@ -1,10 +1,10 @@
-name: MKmoney v2.0 - APK Build Checked
+name: MKmoney v2.0 - Manifest Fix
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v2.0-Build-Fix.zip'
+      - 'MKmoney-v2.0-Build-Fix-v2.zip'
 
 jobs:
   build:
@@ -32,10 +32,10 @@ jobs:
         run: |
           set -euo pipefail
           test -s MKmoney-Full-Source-v1.3.19.zip || { echo 'MKmoney source baseline missing'; exit 1; }
-          test -s MKmoney-v2.0-Build-Fix.zip || { echo 'Upload MKmoney-v2.0-Build-Fix.zip to repository root'; exit 1; }
+          test -s MKmoney-v2.0-Build-Fix-v2.zip || { echo 'Upload MKmoney-v2.0-Build-Fix-v2.zip to repository root'; exit 1; }
           mkdir -p project kitwork
           unzip -q MKmoney-Full-Source-v1.3.19.zip -d project
-          unzip -q MKmoney-v2.0-Build-Fix.zip -d kitwork
+          unzip -q MKmoney-v2.0-Build-Fix-v2.zip -d kitwork
           mv kitwork/mkmoney2kit kit
           test -s project/app/src/main/assets/index.html
           python3 kit/integrate.py
