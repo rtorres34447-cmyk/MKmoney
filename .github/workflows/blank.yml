@@ -1,5 +1,4 @@
-
-name: MKmoney Widget Diagnostic - XML Fixed
+name: MKmoney Widget Diagnostic - XML Recovery
 
 on:
   workflow_dispatch:
@@ -83,6 +82,7 @@ jobs:
           PY
 
           unzip -t "$RUNNER_TEMP/widget.zip"
+
           unzip -q "$RUNNER_TEMP/widget.zip" \
             -d "$RUNNER_TEMP/widget-project"
 
@@ -92,44 +92,63 @@ jobs:
           echo "PROJECT_DIR=$RUNNER_TEMP/widget-project" \
             >> "$GITHUB_ENV"
 
-      - name: Repair widget XML
+      - name: Repair and validate XML layouts
         shell: bash
         run: |
           set -euo pipefail
 
+          python3 -m pip install --quiet lxml
+
           python3 - <<'PY'
           from pathlib import Path
+          from lxml import etree
           import os
-          import xml.etree.ElementTree as ET
 
           root = Path(os.environ["PROJECT_DIR"])
+          res = root / "app/src/main/res"
 
-          file = (
-              root / "app/src/main/res/layout/"
-              "widget_layout.xml"
+          for file in res.rglob("*.xml"):
+              try:
+                  etree.parse(str(file))
+                  print("VALID:", file.name)
+              except etree.XMLSyntaxError:
+                  print("REPAIRING:", file)
+
+                  parser = etree.XMLParser(
+                      recover=True,
+                      remove_blank_text=False
+                  )
+
+                  tree = etree.parse(
+                      str(file), parser
+                  )
+
+                  if tree.getroot() is None:
+                      raise RuntimeError(
+                          "Cannot recover " + str(file)
+                      )
+
+                  tree.write(
+                      str(file),
+                      encoding="utf-8",
+                      xml_declaration=True,
+                      pretty_print=True
+                  )
+
+                  etree.parse(str(file))
+                  print("REPAIRED:", file.name)
+
+          widget = (
+              res / "layout/widget_layout.xml"
           )
 
-          if not file.exists():
+          if not widget.exists():
               raise RuntimeError(
-                  "widget_layout.xml not found"
+                  "Widget layout missing"
               )
 
-          xml = file.read_text()
-
-          opening = xml.count("<LinearLayout")
-          closing = xml.count("</LinearLayout>")
-
-          missing = opening - closing
-
-          if missing > 0:
-              xml = xml.rstrip()
-              xml += "\n"
-              xml += "</LinearLayout>\n" * missing
-              file.write_text(xml)
-
-          ET.parse(file)
-
-          print("Widget layout XML validated")
+          etree.parse(str(widget))
+          print("XML validation completed")
           PY
 
       - name: Configure Android SDK
