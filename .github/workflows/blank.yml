@@ -1,4 +1,4 @@
-name: MKmoney Widget Diagnostic APK (Fixed)
+name: MKmoney Widget Diagnostic - Standalone Build
 
 on:
   workflow_dispatch:
@@ -6,7 +6,6 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/widget-diagnostic.yml'
-      - 'MKmoney-Widget-Diagnostic-Source.zip'
 
 permissions:
   contents: read
@@ -14,63 +13,133 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Locate and extract diagnostic source
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo 'Searching repository for diagnostic source ZIP...'
-          ZIP="$(find . -type f -iname '*widget*diagnostic*.zip' -print -quit)"
-          if [ -z "$ZIP" ]; then
-            echo '::error::No widget diagnostic ZIP found. Upload MKmoney-Widget-Diagnostic-Source.zip to the repo Code tab, then commit.'
-            exit 1
-          fi
-          echo "Found: $ZIP"
-          mkdir -p "$RUNNER_TEMP/mkmoney-widget"
-          unzip -o -q "$ZIP" -d "$RUNNER_TEMP/mkmoney-widget"
-          SETTINGS="$(find "$RUNNER_TEMP/mkmoney-widget" -type f -name settings.gradle -print -quit)"
-          if [ -z "$SETTINGS" ]; then
-            echo '::error::ZIP has no settings.gradle. Upload the diagnostic SOURCE ZIP, not the APK or another MKmoney patch.'
-            unzip -l "$ZIP" | head -50
-            exit 1
-          fi
-          PROJECT="$(dirname "$SETTINGS")"
-          test -f "$PROJECT/app/build.gradle" || { echo '::error::app/build.gradle is missing from diagnostic project'; exit 1; }
-          echo "PROJECT_DIR=$PROJECT" >> "$GITHUB_ENV"
-          echo "Project root: $PROJECT"
-
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Install Android 35 SDK
+      - name: Reconstruct diagnostic project (no ZIP upload required)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/widget-project"
+          cat > "$RUNNER_TEMP/widget.zip.b64" <<'DIAGNOSTIC_ZIP_B64'
+          UEsDBBQAAAAIABEjWF3wMVUG3wEAADcDAAAKAAAAUkVBRE1FLnR4dH1STYsUMRC9z6+omwozvc5e
+          hD0Ig4IO68jgjsjurTrJdBebTsWksmPf/BH+Qn+J1ZmPRQShCUXn5dV7r2pzO3BwI3wj2zmBncsC
+          v3/+AgrWRadHELCEXeAsZGC1vZ3Ndj1l0A8hCwa7QK8UsAo2MVnAGEH/wqEyziGwKDKimB6EYeSS
+          wP0gpQsdbE7tKSiV9yjEoYG19mSX69Pk0M71jB6NA04wsKX9CHsKGAyhB4uCzWz2NXpGC9I7eFhv
+          L63OHZSBMwknLZlV16SxPL9BY3iIGMZJ1v1q82liaDqSvrRXB06Pe8+HfHV0tXiOpBkH38CXEirL
+          GaiG4APJx9LCykymMrxU7bHk/m+cNhmQwqsG3vMhXNQkl4uvCWnigEloj0bU5foYVAXp1XwqAugA
+          ukXUR/lo+jyLngcH2SSnmLenGWetNv9OvZnV2S9vYIdRMx1h+frEvnzTwJ3zzoiz9WYoijQ9hk6d
+          aEJc5Jihjt5jCaZX5SfC6xvYVmF395/fgRzIOGUbg1GP34sishbG0ZNyZ2XyVrNTxcO0ee0I1//r
+          sN5Dy9LrduU8P7t+kaFNGqTBSaUn8wh5zOKGmnqug5+4KIjrUl05iIlbr4hpscMlnmmzKlyvn8i6
+          pFpSbfwHUEsDBBQAAAAIABEjWF2yol9fRgAAAEkAAAAMAAAAYnVpbGQuZ3JhZGxlK8gpTc/MK1ao
+          5lIAgswUBfXk/Fy9xLyUovzMFL3EgoKczOTEksz8PHWFstSiYiBDQd1Cz1zPWF0BJFmpkJaYU5zK
+          VcsFAFBLAwQUAAAACAARI1hdRqAtl7MAAAAcAQAADwAAAHNldHRpbmdzLmdyYWRsZY2OwarCMBRE
+          9/2K7KobP0BxIT4Fn9aGKrgsoRlCHum9IbkVRPx3q8sHgsszDHMmhsF5qgwZhx4k6q4SImcvnDzy
+          iI7ZBUymC9WbK2g9lpIJL3bJ2AD9XtCc5JWqh3oUFhFkQd2tQeYwiOfPiootZhkyaf6H29Xu0NbH
+          Vjf172Z9bpuNrk+j98uD7yuJWXTiP3QyI9NDLVVZ7Xsm3C7eOsiPN444i+/KwlMXBgtVzk2MZfEE
+          UEsDBBQAAAAIABEjWF0GHDhMnQAAAPIAAAAQAAAAYXBwL2J1aWxkLmdyYWRsZYVPMQ7CMAzc+wpv
+          3SIKAiF17MTCwgusOI2sJk7UpCBU9e+kBSE2vN35fHeObrIsCWZggloHr1BoDEwKY3SsMXOQGpbq
+          Q8NcQRlBb1JEbd43fvBBzFM9mKzJxGglpMy63sRFEdmZGw1wOG4MmR4nl7sgPduS/ZN1oT+WLXiW
+          1Wt/aiHjWLYbOrdwN2MqFl0gA80XXktXqBu1W99YqhdQSwMEFAAAAAgAESNYXYe+E6RhAQAA6gIA
+          ACAAAABhcHAvc3JjL21haW4vQW5kcm9pZE1hbmlmZXN0LnhtbJWST2/CMAzF73yKqneSO2qrdYA2
+          NEBoKuKIvNaFaGlSJYbBt1/SP4A6TdOOde2f/V5eVIESJVoKLpVUdgKqMFoUcXgkqiec2/yIFVjW
+          1VmuKw71JzdoeVcLk1EQQV1LkQMJrYKuPpHwgTIOV2+VVngNdqI4IAWZWxbeesjhMQ6f+m9LV4k8
+          81W2AkIjQLKlOByJrXWae/4zmPv8yaKdSgRDeKHMQFmKPA5LkBb9Xe4wN3MWdL1NKPALHVyotPt3
+          x+Gl1g7l9JM5OUIkFKGicSmkuyVpaA8KW1bvTdvL2h62ShfrkCeRMwUP2gwPGAz1XWyZbtfT1/m7
+          H+WD7bwX0ygzmKM4oxkqm4JEVYBp/f5dm2ME/9Ln3virYfYS081mt5i9zLP9djNLs3kY/Dy62VIh
+          wbgAgj/JtdFnUeDDC7uk6ZPJfUhcRHnbtxeq1M4i7wPvjfA55A9BTEYR7+OdjL4BUEsDBBQAAAAI
+          ABEjWF0oC8jxzgEAAOgIAAApAAAAYXBwL3NyYy9tYWluL3Jlcy9sYXlvdXQvd2lkZ2V0X2xheW91
+          dC54bWzNlcFOwjAYgO8+RVOPJmwMECSMmKBeRC8QE0+ktn9YQ9cuXRHmA/hKHrz5KD6JBadssoEJ
+          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
+          39dIKOUzSl8A96RoRVn7SFpaqbVYhdOlvv+vEAXVI3nIasv3djBBBoN9bhPPkzvrjmF9fFn0XB7N
+          INRCpoGLYbMcHpbDD+XwqBx+XK72XtDpNNrwPvlRvut1a1GBS9r9DK8vwP3smBv5cAzeJ8fyLY+B
+          UsVdzwHRH47rsPxO10K92f6foFQ2xqb3c+PgwDtxVJlYi/0AS0LJm0xEOsGmZ5U5uQxXJA1YOAUX
+          Jhz0eup3EDq94+SN45NasvnkyfzQwM3DI9w8+slq6dXhoHNz1+/I5lyq301taS9ntmzsWHolU42A
+          ehTtD8kwNBQlcYoU4QKo5XJ3FcsrIU2gOrLI5EXZQkY9j7RuyLo9l7eHcrKFbq+MfW1BZYJy0Agl
+          C7fMt5QmApqQ/j/zpO7qP4lSGNip+q0sLiKTeZjrK2z5N1BLAQIUAxQAAAAIABEjWF3wMVUG3wEA
+          ADcDAAAKAAAAAAAAAAAAAACkgQAAAABSRUFETUUudHh0UEsBAhQDFAAAAAgAESNYXbKiX19GAAAA
+          SQAAAAwAAAAAAAAAAAAAAKSBBwIAAGJ1aWxkLmdyYWRsZVBLAQIUAxQAAAAIABEjWF1GoC2XswAA
+          ABwBAAAPAAAAAAAAAAAAAACkgXcCAABzZXR0aW5ncy5ncmFkbGVQSwECFAMUAAAACAARI1hdBhw4
+          TJ0AAADyAAAAEAAAAAAAAAAAAAAApIFXAwAAYXBwL2J1aWxkLmdyYWRsZVBLAQIUAxQAAAAIABEj
+          WF2HvhOkYQEAAOoCAAAgAAAAAAAAAAAAAACkgSIEAABhcHAvc3JjL21haW4vQW5kcm9pZE1hbmlm
+          ZXN0LnhtbFBLAQIUAxQAAAAIABEjWF0oC8jxzgEAAOgIAAApAAAAAAAAAAAAAACkgcEFAABhcHAv
+          c3JjL21haW4vcmVzL2xheW91dC93aWRnZXRfbGF5b3V0LnhtbFBLAQIUAxQAAAAIABEjWF2b6HLO
+          mgAAAAQBAAAkAAAAAAAAAAAAAACkgdYHAABhcHAvc3JjL21haW4vcmVzL2xheW91dC9kYXlfY2Vs
+          bC54bWxQSwECFAMUAAAACAAZI1hdHM979sgAAABYAQAAJAAAAAAAAAAAAAAApIGyCAAAYXBwL3Ny
+          Yy9tYWluL3Jlcy94bWwvd2lkZ2V0X2luZm8ueG1sUEsBAhQDFAAAAAgAESNYXa0QpElnAQAAfwIA
+          AEAAAAAAAAAAAAAAAKSBvAkAAGFwcC9zcmMvbWFpbi9qYXZhL2NvbS9ta21vbmV5L3dpZGdldGRp
+          YWdub3N0aWMvTWFpbkFjdGl2aXR5LmphdmFQSwECFAMUAAAACAARI1hdCRXnavQEAADZDAAAQgAA
+          AAAAAAAAAAAApIGBCwAAYXBwL3NyYy9tYWluL2phdmEvY29tL21rbW9uZXkvd2lkZ2V0ZGlhZ25v
+          c3RpYy9DYWxlbmRhcldpZGdldC5qYXZhUEsFBgAAAAAKAAoAFAMAANUQAAAAAA==
+          DIAGNOSTIC_ZIP_B64
+          base64 -d "$RUNNER_TEMP/widget.zip.b64" > "$RUNNER_TEMP/widget.zip"
+          unzip -t "$RUNNER_TEMP/widget.zip"
+          unzip -q "$RUNNER_TEMP/widget.zip" -d "$RUNNER_TEMP/widget-project"
+          test -f "$RUNNER_TEMP/widget-project/settings.gradle"
+          echo "PROJECT_DIR=$RUNNER_TEMP/widget-project" >> "$GITHUB_ENV"
+      - name: Install required Android SDK
         shell: bash
         run: |
           set -euo pipefail
           sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
-
-      - name: Compile diagnostic APK
+      - name: Compile APK
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
           gradle --no-daemon --stacktrace :app:assembleDebug
-
-      - name: Upload diagnostic APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MKmoney-Widget-Diagnostic-APK
