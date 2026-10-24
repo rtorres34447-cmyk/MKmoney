@@ -1,4 +1,4 @@
-name: MKmoney v2.0 - Manifest Fix
+name: MKmoney v2.0 - APK Artifact Fix
 on:
   workflow_dispatch:
   push:
@@ -49,8 +49,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          APK=$(find project/app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f -size +100k -print -quit)
-          test -n "$APK" || { echo 'No compiled APK generated'; exit 1; }
+          APK=$(find project/app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f -print -quit)
+          if [ -z "$APK" ]; then
+            echo 'No APK found. Build outputs:'
+            find project/app/build/outputs -type f -print || true
+            exit 1
+          fi
+          test -s "$APK" || { echo 'APK exists but is empty'; exit 1; }
+          echo "Found APK: $APK ($(stat -c%s "$APK") bytes)"
           cp "$APK" release/MKmoney-v2.0-debug.apk
           unzip -t release/MKmoney-v2.0-debug.apk | tail -2
           cd project
