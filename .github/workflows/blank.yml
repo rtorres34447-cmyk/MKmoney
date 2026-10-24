@@ -1,28 +1,120 @@
-name: Build MK Widget Lab APK
+name: Build MKmoney Android APK (Source Auto-Detect)
+
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
+      - '.github/workflows/blank.yml'
+      - '*.zip'
+      - '**/*.zip'
+      - 'app/**'
       - 'WidgetLab/**'
-      - '.github/workflows/build.yml'
+      - 'gradle/**'
+      - 'settings.gradle*'
+      - 'build.gradle*'
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager 'platforms;android-35' 'platforms;android-34' 'build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Install SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Build
-        run: gradle --no-daemon :app:assembleDebug
-      - uses: actions/upload-artifact@v4
+
+      - name: Locate Android source and extract ZIP if needed
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Repository files:'
+          find . -maxdepth 3 -type f -not -path './.git/*' | sort | head -100
+
+          # Use existing source if present; otherwise unpack the latest versioned ZIP.
+          if ! find . -maxdepth 5 -type f \( -name settings.gradle -o -name settings.gradle.kts \) \
+              -not -path './.git/*' -print -quit | grep -q .; then
+            mapfile -t ARCHIVES < <(find . -maxdepth 3 -type f -iname '*.zip' \
+              -not -path './.git/*' -print | sort -V)
+            if (( ${#ARCHIVES[@]} == 0 )); then
+              echo '::error::No Android Gradle project or source ZIP found. Upload the MKmoney source ZIP to the repository root.'
+              exit 1
+            fi
+            ZIP="${ARCHIVES[$((${#ARCHIVES[@]}-1))]}"
+            echo "Extracting source archive: $ZIP"
+            mkdir -p "$RUNNER_TEMP/mkmoney-source"
+            python3 - "$ZIP" "$RUNNER_TEMP/mkmoney-source" <<'PY'
+          import pathlib, sys, zipfile
+          source, target = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]).resolve()
+          with zipfile.ZipFile(source) as archive:
+              for entry in archive.infolist():
+                  destination = (target / entry.filename).resolve()
+                  if not destination.is_relative_to(target):
+                      raise SystemExit(f'Unsafe ZIP path: {entry.filename}')
+              archive.extractall(target)
+          PY
+            SEARCH_ROOT="$RUNNER_TEMP/mkmoney-source"
+          else
+            SEARCH_ROOT="$GITHUB_WORKSPACE"
+          fi
+
+          PROJECT=''
+          while IFS= read -r file; do
+            candidate="$(dirname "$file")"
+            if [[ -f "$candidate/app/build.gradle" || -f "$candidate/app/build.gradle.kts" ]]; then
+              PROJECT="$candidate"
+              break
+            fi
+          done < <(find "$SEARCH_ROOT" -maxdepth 8 -type f \
+            \( -name settings.gradle -o -name settings.gradle.kts \) | sort)
+
+          if [[ -z "$PROJECT" ]]; then
+            echo '::error::Source found, but no Android project containing settings.gradle and app/build.gradle was detected.'
+            find "$SEARCH_ROOT" -maxdepth 5 -type f | head -100
+            exit 1
+          fi
+          echo "Android project: $PROJECT"
+          echo "project_dir=$PROJECT" >> "$GITHUB_OUTPUT"
+
+      - name: Build debug APK
+        shell: bash
+        env:
+          PROJECT_DIR: ${{ steps.source.outputs.project_dir }}
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          if [[ -f gradlew ]]; then
+            chmod +x gradlew
+            ./gradlew --no-daemon --stacktrace :app:assembleDebug
+          else
+            gradle --no-daemon --stacktrace :app:assembleDebug
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: MK-Widget-Lab-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: MKmoney-debug-APK
+          path: ${{ steps.source.outputs.project_dir }}/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
