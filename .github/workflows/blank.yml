@@ -1,11 +1,11 @@
-name: Build MKmoney v1.3.42 (Native Widget Data Bridge)
+name: Build MKmoney v1.3.43 (Native Widget Data Bridge)
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.42-Native-Widget-Repair.zip'
+      - 'MKmoney-v1.3.43-FullMonth-Bridge-Fix.zip'
 permissions:
   contents: read
 jobs:
@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble MKmoney v1.3.42
+      - name: Assemble MKmoney v1.3.43
         shell: bash
         run: |
           set -euo pipefail
@@ -34,7 +34,7 @@ jobs:
             MKmoney-v1.3.38-Theme-Sync-Patch.zip
             MKmoney-v1.3.40-Restore-Full-Month-Widget-Patch.zip
             MKmoney-v1.3.41-Interactive-Calendar-Patch.zip
-            MKmoney-v1.3.42-Native-Widget-Repair.zip
+            MKmoney-v1.3.43-FullMonth-Bridge-Fix.zip
           )
           slots=(base update feature14 feature15 feature16 verify feature30 feature31 feature34 feature35 feature36 feature37 feature38 feature40 feature41 feature42)
           for i in "${!files[@]}"; do
@@ -91,6 +91,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MKmoney-v1.3.42-APK
+          name: MKmoney-v1.3.43-APK
           path: ${{ env.SOURCE_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
