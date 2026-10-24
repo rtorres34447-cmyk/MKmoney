@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v1.3.44-FullMonth-Bridge-Fix.zip'
+      - 'MKmoney-v1.3.44-JSONObject-Compatibility-Fix.zip'
 permissions:
   contents: read
 jobs:
@@ -34,7 +34,7 @@ jobs:
             MKmoney-v1.3.38-Theme-Sync-Patch.zip
             MKmoney-v1.3.40-Restore-Full-Month-Widget-Patch.zip
             MKmoney-v1.3.41-Interactive-Calendar-Patch.zip
-            MKmoney-v1.3.44-FullMonth-Bridge-Fix.zip
+            MKmoney-v1.3.44-JSONObject-Compatibility-Fix.zip
           )
           slots=(base update feature14 feature15 feature16 verify feature30 feature31 feature34 feature35 feature36 feature37 feature38 feature40 feature41 feature44)
           for i in "${!files[@]}"; do
