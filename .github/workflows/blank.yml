@@ -1,11 +1,11 @@
-name: MKmoney v2.0 - v1.3.47 Settings Widget Diagnostics
+name: MKmoney - Proven Widget Bridge Audit
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v2.0-Settings-Diagnostics-AddOn.zip'
+      - 'MKmoney-Bridge-Comparison-Audit.zip'
 permissions:
   contents: read
 jobs:
@@ -72,49 +72,24 @@ jobs:
           with open(os.environ['GITHUB_ENV'],'a') as f:f.write('SOURCE_DIR='+str(root)+'\n')
           print('Preserved v1.3.47 assembled at',root)
           PY
-      - name: Add widget diagnostics to Settings (no dashboard replacement)
+      - name: Extract proven Widget Lab and audit both native bridges
         shell: bash
         run: |
           set -euo pipefail
-          test -s MKmoney-v2.0-Settings-Diagnostics-AddOn.zip
-          mkdir -p "$RUNNER_TEMP/settings_addon"
-          unzip -q MKmoney-v2.0-Settings-Diagnostics-AddOn.zip -d "$RUNNER_TEMP/settings_addon"
-          python3 -m py_compile "$RUNNER_TEMP/settings_addon/integrate.py"
-          python3 "$RUNNER_TEMP/settings_addon/integrate.py" "$SOURCE_DIR"
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
-      - name: Install Android SDK
+          mkdir -p "$RUNNER_TEMP/widget_audit"
+          unzip -q MKmoney-Bridge-Comparison-Audit.zip -d "$RUNNER_TEMP/widget_audit"
+          python3 "$RUNNER_TEMP/widget_audit/compare_bridges.py" \
+            "$SOURCE_DIR" "MK-Widget-Lab-v2.1-Source.zip" "$GITHUB_WORKSPACE/bridge-report"
+      - name: Package assembled source for exact patching
         shell: bash
         run: |
           set -euo pipefail
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          MANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
-          test -x "$MANAGER"
-          yes | "$MANAGER" --sdk_root="$SDK" --licenses >/dev/null || true
-          "$MANAGER" --sdk_root="$SDK" --install 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Compile APK
-        working-directory: ${{ env.SOURCE_DIR }}
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Prepare APK and complete assembled source
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release
-          APK="$(find "$SOURCE_DIR/app/build/outputs/apk/debug" -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          test -n "$APK" && test -s "$APK"
-          unzip -t "$APK" | tail -2
-          cp "$APK" release/MKmoney-v2.0-Settings-Diagnostics-debug.apk
           cd "$SOURCE_DIR"
-          zip -qr "$GITHUB_WORKSPACE/release/MKmoney-v2.0-Settings-Diagnostics-Full-Source.zip" . -x '*/build/*' '*/.gradle/*'
+          zip -qr "$GITHUB_WORKSPACE/bridge-report/MKmoney-v1.3.47-Assembled-Source.zip" . \
+            -x '*/build/*' '*/.gradle/*'
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: MKmoney-v2.0-Settings-Diagnostics-APK-AND-SOURCE
+          name: MKmoney-Proven-Bridge-Comparison
+          path: bridge-report/*
           if-no-files-found: error
-          path: release/*
