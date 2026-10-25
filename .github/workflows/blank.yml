@@ -1,4 +1,4 @@
-name: MKmoney - Visible Settings Sync + Diagnostics
+name: MKmoney v2.1 - Direct Calendar Sync and Diagnostics
 on:
   workflow_dispatch:
   push:
@@ -7,6 +7,7 @@ on:
       - '.github/workflows/blank.yml'
       - 'MKmoney-Bridge-Comparison-Audit.zip'
       - 'MKmoney-v2.0-Settings-Visible-Fix.zip'
+      - 'MKmoney-v2.1-Direct-Calendar-Sync.zip'
 permissions:
   contents: read
 jobs:
@@ -82,6 +83,16 @@ jobs:
           unzip -q MKmoney-v2.0-Settings-Visible-Fix.zip -d "$RUNNER_TEMP/settings_addon"
           python3 -m py_compile "$RUNNER_TEMP/settings_addon/integrate.py"
           python3 "$RUNNER_TEMP/settings_addon/integrate.py" "$SOURCE_DIR"
+      - name: Wire existing MKmoney calendar sync function to Settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s MKmoney-v2.1-Direct-Calendar-Sync.zip
+          mkdir -p "$RUNNER_TEMP/direct_sync"
+          unzip -q MKmoney-v2.1-Direct-Calendar-Sync.zip -d "$RUNNER_TEMP/direct_sync"
+          python3 -m py_compile "$RUNNER_TEMP/direct_sync/targeted_sync.py"
+          python3 "$RUNNER_TEMP/direct_sync/targeted_sync.py" "$SOURCE_DIR"
+          grep -q 'mk-calendar-direct-sync-v1' "$SOURCE_DIR/app/src/main/assets/index.html"
       - name: Assert Settings Sync and Diagnostics are embedded
         shell: bash
         run: |
@@ -131,7 +142,7 @@ jobs:
             APK="$(find "$SOURCE_DIR/app/build/outputs/apk/debug" -maxdepth 1 -type f -name '*.apk' -print -quit 2>/dev/null || true)"
             if [ -n "$APK" ] && [ -s "$APK" ]; then
               unzip -t "$APK" | tail -2
-              cp "$APK" release/MKmoney-v2.0-Settings-Diagnostics-debug.apk
+              cp "$APK" release/MKmoney-v2.1-Direct-Calendar-Sync-debug.apk
             else
               echo 'APK was not compiled; inspect the failed compile step' > release/BUILD-ERROR.txt
             fi
@@ -141,6 +152,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: MKmoney-APK-AND-Bridge-Report
+          name: MKmoney-v2.1-APK-AND-Bridge-Report
           if-no-files-found: warn
           path: release/*
