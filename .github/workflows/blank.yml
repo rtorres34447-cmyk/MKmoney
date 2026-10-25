@@ -1,4 +1,4 @@
-name: MKmoney - APK and Proven Bridge Audit
+name: MKmoney - Visible Settings Sync + Diagnostics
 on:
   workflow_dispatch:
   push:
@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/blank.yml'
       - 'MKmoney-Bridge-Comparison-Audit.zip'
-      - 'MKmoney-v2.0-Settings-Diagnostics-AddOn.zip'
+      - 'MKmoney-v2.0-Settings-Visible-Fix.zip'
 permissions:
   contents: read
 jobs:
@@ -77,11 +77,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s MKmoney-v2.0-Settings-Diagnostics-AddOn.zip
+          test -s MKmoney-v2.0-Settings-Visible-Fix.zip
           mkdir -p "$RUNNER_TEMP/settings_addon"
-          unzip -q MKmoney-v2.0-Settings-Diagnostics-AddOn.zip -d "$RUNNER_TEMP/settings_addon"
+          unzip -q MKmoney-v2.0-Settings-Visible-Fix.zip -d "$RUNNER_TEMP/settings_addon"
           python3 -m py_compile "$RUNNER_TEMP/settings_addon/integrate.py"
           python3 "$RUNNER_TEMP/settings_addon/integrate.py" "$SOURCE_DIR"
+      - name: Assert Settings Sync and Diagnostics are embedded
+        shell: bash
+        run: |
+          set -euo pipefail
+          HTML="$SOURCE_DIR/app/src/main/assets/index.html"
+          grep -q 'mkmoney-widget-diagnostic-settings-v22' "$HTML"
+          grep -q 'mk-settings-sync-v22' "$HTML"
+          grep -q 'mk-widget-run-v22' "$HTML"
+          grep -q 'mk-widget-copy-v22' "$HTML"
+          echo 'Settings Sync and diagnostics code present in final app assets.'
       - name: Compare test widget with assembled MKmoney (non-blocking)
         continue-on-error: true
         shell: bash
