@@ -1,11 +1,11 @@
-name: MKmoney v2.2 - Real Calendar to Widget Fix
+name: MKmoney v2.3 - Calendar Bill Indicators
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - '.github/workflows/blank.yml'
-      - 'MKmoney-v2.2-Calendar-to-Widget-Full-Source.zip'
+      - 'MKmoney-v2.3-Calendar-Bill-Indicators-Full-Source.zip'
 permissions:
   contents: read
 jobs:
@@ -18,9 +18,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s MKmoney-v2.2-Calendar-to-Widget-Full-Source.zip
+          test -s MKmoney-v2.3-Calendar-Bill-Indicators-Full-Source.zip
           mkdir -p "$RUNNER_TEMP/MKmoney-v22"
-          unzip -q MKmoney-v2.2-Calendar-to-Widget-Full-Source.zip -d "$RUNNER_TEMP/MKmoney-v22"
+          unzip -q MKmoney-v2.3-Calendar-Bill-Indicators-Full-Source.zip -d "$RUNNER_TEMP/MKmoney-v22"
           echo "SOURCE_DIR=$RUNNER_TEMP/MKmoney-v22" >> "$GITHUB_ENV"
       - name: Verify the actual calendar-to-widget connection
         shell: bash
@@ -42,6 +42,8 @@ jobs:
            'Bridge writes actual widget storage': '"mkmoney_calendar_widget"' in native,
            'Registered widget refreshed': 'new InteractiveCalendarWidget().onUpdate' in native,
            'Manifest registers that widget': 'InteractiveCalendarWidget' in manifest,
+           'Widget shows daily payment summary': 'DaySummary sum=dayMap.get(d)' in widget and 'sum.count' in widget and 'sum.total' in widget,
+           'Widget shows configured payday': 'p.getInt("payday",15)' in widget and 'onPayday' in widget,
            'Widget reads same storage': '"mkmoney_calendar_widget"' in widget and 'p.getString("payments","[]")' in widget,
           }
           for label,ok in assertions.items():print(('PASS' if ok else 'FAIL'),label)
@@ -76,9 +78,9 @@ jobs:
           APK="$(find "$SOURCE_DIR/app/build/outputs/apk/debug" -type f -name '*.apk' -print -quit)"
           test -s "$APK"
           unzip -t "$APK" | tail -2
-          cp "$APK" release/MKmoney-v2.2-Calendar-to-Widget-debug.apk
+          cp "$APK" release/MKmoney-v2.3-Calendar-Bill-Indicators-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: MKmoney-v2.2-Calendar-to-Widget-APK
+          name: MKmoney-v2.3-Calendar-Bill-Indicators-APK
           path: release/*.apk
           if-no-files-found: error
